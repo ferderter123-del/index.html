@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Finanzas Personales Vasquez</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -14,6 +14,7 @@
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: contain;
         }
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
@@ -25,6 +26,10 @@
             background: #cbd5e1;
             border-radius: 10px;
         }
+        /* Prevenir zoom en inputs en iOS */
+        input, select {
+            font-size: 16px !important;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -34,7 +39,7 @@
         const { useState, useEffect, useMemo } = React;
         
         const Icon = ({ name, className = "w-4 h-4" }) => {
-            return <i data-lucide={name} class={className}></i>;
+            return <i data-lucide={name} className={className}></i>;
         };
 
         const CATEGORIES = {
@@ -59,11 +64,10 @@
         };
 
         function App() {
+            // Cambio clave: Iniciamos con un array vacío [] si no hay datos guardados
             const [transactions, setTransactions] = useState(() => {
                 const saved = localStorage.getItem('vasquez_finance_data');
-                return saved ? JSON.parse(saved) : [
-                    { id: 1, type: 'INCOME', amount: 1000, category: 'allowance', account: 'bank', note: 'Depósito Inicial', date: new Date().toISOString() }
-                ];
+                return saved ? JSON.parse(saved) : [];
             });
             
             const [amount, setAmount] = useState('');
@@ -74,7 +78,9 @@
 
             useEffect(() => {
                 localStorage.setItem('vasquez_finance_data', JSON.stringify(transactions));
-                lucide.createIcons();
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
             }, [transactions]);
 
             const totals = useMemo(() => {
@@ -123,12 +129,14 @@
                     amount: parseFloat(amount),
                     category,
                     account,
-                    note: note || 'Sin nota',
+                    note: note || (type === 'INCOME' ? 'Ingreso' : 'Gasto'),
                     date: new Date().toISOString(),
                 };
                 setTransactions([newTransaction, ...transactions]);
                 setAmount('');
                 setNote('');
+                // Resetear categoría por defecto según el tipo
+                setCategory(CATEGORIES[type][0].id);
             };
 
             const deleteTransaction = (id) => {
@@ -137,26 +145,33 @@
                 }
             };
 
+            const resetAll = () => {
+                if(confirm('¿Seguro que quieres borrar todo? Esto dejará tus cuentas en 0.00 Bs y eliminará el historial.')) {
+                    setTransactions([]);
+                    localStorage.removeItem('vasquez_finance_data');
+                }
+            };
+
             return (
                 <div className="min-h-screen bg-slate-50 pb-12">
                     <div className="max-w-6xl mx-auto p-4 md:p-8">
-                        {/* Header Mejorado */}
-                        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        {/* Header */}
+                        <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
                             <div>
                                 <h1 className="text-3xl font-bold text-indigo-700 tracking-tight">Finanzas Vasquez</h1>
-                                <p className="text-slate-500 font-medium text-sm">Gestión Universitaria • Regla 50/30/20</p>
+                                <p className="text-slate-500 font-medium text-sm">Gestión Universitaria • Todo en Cero</p>
                             </div>
                             
                             <div className="flex flex-wrap gap-3">
-                                <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+                                <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center min-w-[100px]">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Billetera</span>
                                     <span className="text-lg font-bold text-slate-700">Bs {totals.wallet.toFixed(2)}</span>
                                 </div>
-                                <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+                                <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center min-w-[100px]">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Banco</span>
                                     <span className="text-lg font-bold text-slate-700">Bs {totals.bank.toFixed(2)}</span>
                                 </div>
-                                <div className="bg-indigo-600 px-6 py-3 rounded-2xl shadow-lg shadow-indigo-200 text-white flex flex-col justify-center min-w-[140px]">
+                                <div className="bg-indigo-600 px-6 py-3 rounded-2xl shadow-lg shadow-indigo-100 text-white flex flex-col justify-center min-w-[140px]">
                                     <span className="text-[10px] font-bold opacity-80 uppercase tracking-wider">Total</span>
                                     <span className="text-xl font-bold">Bs {totals.total.toFixed(2)}</span>
                                 </div>
@@ -164,14 +179,14 @@
                         </header>
 
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            {/* Columna Izquierda: Registro */}
+                            {/* Columna Izquierda: Formulario */}
                             <div className="lg:col-span-4 space-y-6">
                                 <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
                                     <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800">
                                         <div className="bg-indigo-100 p-2 rounded-lg">
                                             <Icon name="plus-circle" className="text-indigo-600 w-5 h-5" />
                                         </div>
-                                        Nuevo Movimiento
+                                        Registrar
                                     </h2>
                                     <form onSubmit={addTransaction} className="space-y-4">
                                         <div className="flex bg-slate-100 p-1.5 rounded-2xl">
@@ -180,33 +195,33 @@
                                         </div>
                                         
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 ml-2 uppercase">Monto en Bolivianos</label>
+                                            <label className="text-[10px] font-bold text-slate-400 ml-2 uppercase tracking-wide">Monto (Bs)</label>
                                             <input type="number" step="0.1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xl text-center outline-none focus:ring-2 focus:ring-indigo-500 transition-all" required />
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-slate-400 ml-2 uppercase">Cuenta</label>
-                                                <select value={account} onChange={(e) => setAccount(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400">
+                                                <label className="text-[10px] font-bold text-slate-400 ml-2 uppercase tracking-wide">Cuenta</label>
+                                                <select value={account} onChange={(e) => setAccount(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none">
                                                     <option value="wallet">Billetera</option>
                                                     <option value="bank">Banco</option>
                                                 </select>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-slate-400 ml-2 uppercase">Categoría</label>
-                                                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400">
+                                                <label className="text-[10px] font-bold text-slate-400 ml-2 uppercase tracking-wide">Categoría</label>
+                                                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none">
                                                     {CATEGORIES[type].map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                                 </select>
                                             </div>
                                         </div>
 
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 ml-2 uppercase">Descripción</label>
-                                            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="¿En qué lo usaste?" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400" />
+                                            <label className="text-[10px] font-bold text-slate-400 ml-2 uppercase tracking-wide">Nota</label>
+                                            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: Pasajes, Mesada..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none" />
                                         </div>
 
-                                        <button type="submit" className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg transition-all active:scale-95 mt-2 ${type === 'EXPENSE' ? 'bg-red-500 shadow-red-100 hover:bg-red-600' : 'bg-emerald-500 shadow-emerald-100 hover:bg-emerald-600'}`}>
-                                            Registrar {type === 'EXPENSE' ? 'Gasto' : 'Ingreso'}
+                                        <button type="submit" className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg transition-all active:scale-95 ${type === 'EXPENSE' ? 'bg-red-500 shadow-red-100 hover:bg-red-600' : 'bg-emerald-500 shadow-emerald-100 hover:bg-emerald-600'}`}>
+                                            Guardar Registro
                                         </button>
                                     </form>
                                 </section>
@@ -216,72 +231,69 @@
                                         <Icon name="lightbulb" className="text-amber-600 w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-amber-900 text-sm mb-1 text-left">Tip Universitario</h3>
+                                        <h3 className="font-bold text-amber-900 text-sm mb-1 text-left tracking-tight">Inicio Limpio</h3>
                                         <p className="text-xs text-amber-700 leading-relaxed">
-                                            Idealmente deberías tener <strong>Bs {totals.rule20.toFixed(2)}</strong> guardados como ahorro hoy.
+                                            Al iniciar en <strong>0.00 Bs</strong>, registra primero lo que tienes físicamente para que el saldo sea exacto.
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Columna Derecha: Reportes y Listado */}
+                            {/* Columna Derecha: Dashboard y Lista */}
                             <div className="lg:col-span-8 space-y-6">
-                                {/* Dashboard 50/30/20 */}
                                 <section className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
                                     <div className="flex items-center justify-between mb-6">
                                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
                                             <Icon name="pie-chart" className="text-indigo-500" /> 
-                                            Distribución 50/30/20
+                                            Presupuesto 50/30/20
                                         </h3>
-                                        <span className="text-[10px] bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500">BOLIVIA</span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="p-5 bg-emerald-50 rounded-3xl border border-emerald-100 group transition-all">
+                                        <div className="p-5 bg-emerald-50 rounded-3xl border border-emerald-100">
                                             <div className="flex items-center gap-2 text-emerald-600 mb-2">
                                                 <Icon name="shield-check" className="w-4 h-4" />
-                                                <span className="text-[10px] font-bold uppercase tracking-wider">Necesidades</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Necesidades</span>
                                             </div>
                                             <p className="text-2xl font-bold text-emerald-900">Bs {Math.max(0, totals.rule50).toFixed(2)}</p>
                                         </div>
                                         <div className="p-5 bg-indigo-50 rounded-3xl border border-indigo-100">
                                             <div className="flex items-center gap-2 text-indigo-600 mb-2">
                                                 <Icon name="zap" className="w-4 h-4" />
-                                                <span className="text-[10px] font-bold uppercase tracking-wider">Deseos</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Deseos</span>
                                             </div>
                                             <p className="text-2xl font-bold text-indigo-900">Bs {Math.max(0, totals.rule30).toFixed(2)}</p>
                                         </div>
                                         <div className="p-5 bg-purple-50 rounded-3xl border border-purple-100">
                                             <div className="flex items-center gap-2 text-purple-600 mb-2">
                                                 <Icon name="piggy-bank" className="w-4 h-4" />
-                                                <span className="text-[10px] font-bold uppercase tracking-wider">Ahorro</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700">Ahorro (20%)</span>
                                             </div>
                                             <p className="text-2xl font-bold text-purple-900">Bs {totals.rule20.toFixed(2)}</p>
                                         </div>
                                     </div>
                                 </section>
 
-                                {/* Historial con mejor diseño */}
                                 <section className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                                    <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-white">
+                                    <div className="p-6 border-b border-slate-50 flex justify-between items-center">
                                         <div className="flex items-center gap-3">
                                             <div className="bg-slate-100 p-2 rounded-xl text-slate-500">
                                                 <Icon name="history" />
                                             </div>
-                                            <h2 className="font-bold text-slate-800">Actividad Reciente</h2>
+                                            <h2 className="font-bold text-slate-800 tracking-tight">Historial</h2>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Gasto Hoy</p>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Gasto Hoy</p>
                                             <p className="font-bold text-red-500">Bs {dailyExpenses.toFixed(2)}</p>
                                         </div>
                                     </div>
                                     
-                                    <div className="max-h-[480px] overflow-y-auto custom-scrollbar">
+                                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar bg-white">
                                         {transactions.length === 0 ? (
                                             <div className="p-20 text-center">
                                                 <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
                                                     <Icon name="inbox" className="w-8 h-8" />
                                                 </div>
-                                                <p className="text-slate-400 font-medium italic">No hay movimientos aún.</p>
+                                                <p className="text-slate-400 font-medium italic">Todo limpio. Empieza a registrar.</p>
                                             </div>
                                         ) : (
                                             transactions.map(t => {
@@ -289,8 +301,8 @@
                                                 const accData = ACCOUNTS[t.account.toUpperCase()];
                                                 return (
                                                     <div key={t.id} className="px-6 py-5 border-b border-slate-50 flex justify-between items-center hover:bg-slate-50/50 transition-all group">
-                                                        <div className="flex items-center gap-5">
-                                                            <div className={`${catData.color} p-3.5 rounded-2xl text-white shadow-sm`}>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className={`${catData.color} p-3 rounded-2xl text-white shadow-sm`}>
                                                                 <Icon name={catData.icon} className="w-5 h-5" />
                                                             </div>
                                                             <div className="space-y-1">
@@ -307,9 +319,9 @@
                                                                 <p className={`font-bold text-lg ${t.type === 'INCOME' ? 'text-emerald-500' : 'text-slate-700'}`}>
                                                                     {t.type === 'INCOME' ? '+' : '-'} Bs {t.amount.toFixed(2)}
                                                                 </p>
-                                                                <p className="text-[9px] text-slate-400 font-bold uppercase">{new Date(t.date).toLocaleDateString('es-BO')}</p>
+                                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">{new Date(t.date).toLocaleDateString('es-BO')}</p>
                                                             </div>
-                                                            <button onClick={() => deleteTransaction(t.id)} className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                                                            <button onClick={() => deleteTransaction(t.id)} className="p-2.5 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 active:opacity-100">
                                                                 <Icon name="trash-2" className="w-4 h-4" />
                                                             </button>
                                                         </div>
@@ -318,9 +330,9 @@
                                             })
                                         )}
                                     </div>
-                                    <div className="p-4 bg-slate-50/50 text-center">
-                                        <button onClick={() => { if(confirm('¿Reiniciar todos los datos?')) { localStorage.clear(); location.reload(); }}} className="text-[9px] font-bold text-slate-400 hover:text-red-400 uppercase tracking-widest transition-colors">
-                                            Limpiar Base de Datos
+                                    <div className="p-4 bg-slate-50 text-center">
+                                        <button onClick={resetAll} className="text-[10px] font-bold text-slate-400 hover:text-red-500 uppercase tracking-widest transition-colors">
+                                            Reiniciar todo a Cero
                                         </button>
                                     </div>
                                 </section>
